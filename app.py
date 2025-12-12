@@ -61,29 +61,35 @@ with app.app_context():
         print(f"❌ Error registering API blueprint: {str(e)}")
         pass  # Continue without API blueprint
     
-    # Register attendance routes
+    # Register attendance routes (optional)
     try:
         from attendance_routes import attendance_bp
         if 'attendance' not in [bp.name for bp in app.blueprints.values()]:
             app.register_blueprint(attendance_bp)
-    except ValueError:
-        pass  # Blueprint already registered
+            print("✅ Attendance routes registered")
+    except (ImportError, ValueError):
+        print("⚠️ Attendance routes not available (optional)")
+        pass  # Module not found or blueprint already registered
     
-    # Register refund routes
+    # Register refund routes (optional)
     try:
         from refund_routes import refund_bp
         if 'refund' not in [bp.name for bp in app.blueprints.values()]:
             app.register_blueprint(refund_bp)
-    except ValueError:
-        pass  # Blueprint already registered
+            print("✅ Refund routes registered")
+    except (ImportError, ValueError):
+        print("⚠️ Refund routes not available (optional)")
+        pass  # Module not found or blueprint already registered
     
-    # Register front desk routes
+    # Register front desk routes (optional)
     try:
         from front_desk_routes import front_desk_bp
         if 'front_desk' not in [bp.name for bp in app.blueprints.values()]:
             app.register_blueprint(front_desk_bp)
-    except ValueError:
-        pass  # Blueprint already registered
+            print("✅ Front desk routes registered")
+    except (ImportError, ValueError):
+        print("⚠️ Front desk routes not available (optional)")
+        pass  # Module not found or blueprint already registered
     
     # Create initial data
     from init_data import create_initial_data
