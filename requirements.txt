@@ -1,0 +1,13 @@
+Flask==2.3.3
+Flask-SQLAlchemy==3.0.5
+Flask-Login==0.6.3
+Flask-Migrate==4.0.5
+Flask-CORS==4.0.0
+Werkzeug==2.3.7
+requests==2.31.0
+python-dotenv==1.0.0
+sendgrid==6.10.0
+PyJWT==2.8.0
+gunicorn==21.2.0
+psycopg2-binary==2.9.7
+pytz==2023.3
