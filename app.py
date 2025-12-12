@@ -29,30 +29,9 @@ CORS(app, resources={r"/api/*": {"origins": [
     "http://192.168.100.159:54391"
 ]}}, supports_credentials=True)
 
-# Configure the database with fallback
-database_url = os.environ.get("DATABASE_URL", "sqlite:///hotel.db")
-
-# Fix for Heroku/Render postgres:// URLs (should be postgresql://)
-if database_url.startswith("postgres://"):
-    database_url = database_url.replace("postgres://", "postgresql://", 1)
-
-# Try PostgreSQL first, fallback to SQLite if it fails
-try:
-    if "postgresql" in database_url or "postgres" in database_url:
-        # For PostgreSQL, use a simpler connection string format
-        app.config["SQLALCHEMY_DATABASE_URI"] = database_url
-        app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
-            "pool_recycle": 300,
-            "pool_pre_ping": True,
-        }
-        print("✅ Configured for PostgreSQL")
-    else:
-        app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///hotel.db"
-        print("📁 Using SQLite (Local Development)")
-except Exception as e:
-    print(f"⚠️ Database configuration error: {e}")
-    print("🔄 Falling back to SQLite")
-    app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///hotel.db"
+# Use SQLite for now (PostgreSQL has Python 3.13 compatibility issues on Render)
+print("📁 Using SQLite database for deployment")
+app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///hotel.db"
 
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
