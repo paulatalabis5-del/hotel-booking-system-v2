@@ -1,4 +1,12 @@
+"""
+Re-enable email verification with updated SendGrid API keys
+This restores full email verification functionality
+"""
 
+def create_email_verification_api():
+    """Create API routes with working email verification"""
+    
+    api_content = '''
 from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user
 from functools import wraps
@@ -373,3 +381,43 @@ def health_check():
         'timestamp': datetime.utcnow().isoformat(),
         'email_configured': bool(SENDGRID_API_KEY)
     }), 200
+'''
+    
+    return api_content
+
+def apply_email_verification():
+    """Apply email verification functionality"""
+    
+    print("📧 ENABLING EMAIL VERIFICATION")
+    print("=" * 50)
+    
+    # Create the new API routes with email verification
+    api_content = create_email_verification_api()
+    
+    try:
+        with open('api_routes.py', 'w', encoding='utf-8') as f:
+            f.write(api_content)
+        
+        print("✅ Created API routes with email verification")
+        
+        print("\n📧 EMAIL VERIFICATION FEATURES:")
+        print("✅ SendGrid email sending")
+        print("✅ Beautiful HTML email templates")
+        print("✅ 6-digit verification codes")
+        print("✅ Code expiration (15 minutes)")
+        print("✅ Resend verification option")
+        print("✅ Email verification required for login")
+        
+        print("\n🚀 NEXT STEPS:")
+        print("1. Commit and push changes")
+        print("2. Redeploy on Render")
+        print("3. Test registration with email verification")
+        
+        return True
+        
+    except Exception as e:
+        print(f"❌ Failed to create API routes: {e}")
+        return False
+
+if __name__ == "__main__":
+    apply_email_verification()

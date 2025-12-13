@@ -18,7 +18,8 @@ def create_initial_data():
                 first_name='Admin',
                 last_name='User',
                 is_admin=True,
-                is_verified=True
+                is_verified=True,
+                verification_code=None
             )
             admin_user.set_password('admin123')
             db.session.add(admin_user)
@@ -33,7 +34,8 @@ def create_initial_data():
                 first_name='Test',
                 last_name='User',
                 is_admin=False,
-                is_verified=True
+                is_verified=True,
+                verification_code=None
             )
             test_user.set_password('test123')
             db.session.add(test_user)
