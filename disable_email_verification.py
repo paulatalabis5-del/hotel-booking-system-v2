@@ -1,13 +1,20 @@
 """
-Simplified API routes without email verification requirement
+Temporary fix to disable email verification for easier testing
 This allows users to register without email verification
 """
 
+import os
+import sys
+
+def create_no_verification_api_routes():
+    """Create a simplified API routes file without email verification"""
+    
+    api_routes_content = '''
+# Simplified API routes without email verification requirement
 from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user
 from functools import wraps
 import jwt
-import os
 from datetime import datetime, timedelta
 from models import User, Room, Rating
 from extensions import db
@@ -31,8 +38,6 @@ def register():
         password = data.get('password')
         phone_number = data.get('phone_number')
         
-        print(f"[REGISTER] Attempting registration for: {email}")
-        
         # Basic validation
         if not all([username, email, password]):
             return jsonify({'success': False, 'message': 'Missing required fields'}), 400
@@ -44,10 +49,8 @@ def register():
         
         if existing_user:
             if existing_user.username == username:
-                print(f"[REGISTER] Username already taken: {username}")
                 return jsonify({'success': False, 'message': 'Username already taken'}), 400
             else:
-                print(f"[REGISTER] Email already registered: {email}")
                 return jsonify({'success': False, 'message': 'Email already registered'}), 400
         
         # Create new user (no email verification required)
@@ -62,8 +65,6 @@ def register():
         db.session.add(new_user)
         db.session.commit()
         
-        print(f"[REGISTER] User created successfully: {email}")
-        
         return jsonify({
             'success': True,
             'message': 'Registration successful! You can now login.',
@@ -72,7 +73,6 @@ def register():
         
     except Exception as e:
         db.session.rollback()
-        print(f"[REGISTER] Error: {str(e)}")
         return jsonify({'success': False, 'message': f'Registration failed: {str(e)}'}), 500
 
 @api_bp.route('/auth/login', methods=['POST'])
@@ -83,15 +83,12 @@ def login():
         email = data.get('email')
         password = data.get('password')
         
-        print(f"[LOGIN] Attempting login for: {email}")
-        
         if not email or not password:
             return jsonify({'success': False, 'message': 'Email and password required'}), 400
         
         user = User.query.filter_by(email=email).first()
         
         if not user or not user.check_password(password):
-            print(f"[LOGIN] Invalid credentials for: {email}")
             return jsonify({'success': False, 'message': 'Invalid credentials'}), 401
         
         # Generate JWT token
@@ -102,8 +99,6 @@ def login():
         }
         
         token = jwt.encode(token_payload, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
-        
-        print(f"[LOGIN] Login successful for: {email}")
         
         return jsonify({
             'success': True,
@@ -118,7 +113,6 @@ def login():
         }), 200
         
     except Exception as e:
-        print(f"[LOGIN] Error: {str(e)}")
         return jsonify({'success': False, 'message': f'Login failed: {str(e)}'}), 500
 
 @api_bp.route('/rooms', methods=['GET'])
@@ -133,12 +127,6 @@ def get_rooms():
             ratings = Rating.query.filter_by(room_id=room.id).all()
             avg_rating = sum(r.rating for r in ratings) / len(ratings) if ratings else 0
             
-            # Create star display (using text instead of emoji)
-            stars_text = ""
-            if avg_rating > 0:
-                full_stars = int(avg_rating)
-                stars_text = "★" * full_stars
-            
             room_data = {
                 'id': room.id,
                 'name': room.name,
@@ -147,7 +135,7 @@ def get_rooms():
                 'capacity': room.capacity,
                 'averageRating': round(avg_rating, 1),
                 'reviewCount': len(ratings),
-                'stars': stars_text,
+                'stars': '⭐' * int(avg_rating) if avg_rating > 0 else '',
                 'image_url': getattr(room, 'image_url', ''),
                 'room_type': getattr(room, 'room_type', 'Standard')
             }
@@ -156,7 +144,6 @@ def get_rooms():
         return jsonify({'data': room_list}), 200
         
     except Exception as e:
-        print(f"[ROOMS] Error: {str(e)}")
         return jsonify({'success': False, 'message': f'Failed to get rooms: {str(e)}'}), 500
 
 @api_bp.route('/rooms/ratings', methods=['GET'])
@@ -170,31 +157,65 @@ def get_room_ratings():
             ratings = Rating.query.filter_by(room_id=room.id).all()
             avg_rating = sum(r.rating for r in ratings) / len(ratings) if ratings else 0
             
-            # Create star display (using text instead of emoji)
-            stars_text = ""
-            if avg_rating > 0:
-                full_stars = int(avg_rating)
-                stars_text = "★" * full_stars
-            
             ratings_data.append({
                 'room_id': room.id,
                 'room_name': room.name,
                 'average_rating': round(avg_rating, 1),
                 'review_count': len(ratings),
-                'stars': stars_text
+                'stars': '⭐' * int(avg_rating) if avg_rating > 0 else ''
             })
         
         return jsonify({'ratings': ratings_data}), 200
         
     except Exception as e:
-        print(f"[RATINGS] Error: {str(e)}")
         return jsonify({'success': False, 'message': f'Failed to get ratings: {str(e)}'}), 500
+'''
+    
+    return api_routes_content
 
-@api_bp.route('/health', methods=['GET'])
-def health_check():
-    """Health check endpoint"""
-    return jsonify({
-        'status': 'healthy',
-        'message': 'API is working',
-        'timestamp': datetime.utcnow().isoformat()
-    }), 200
+def apply_no_verification_fix():
+    """Apply the no email verification fix"""
+    
+    print("🔧 APPLYING NO EMAIL VERIFICATION FIX")
+    print("=" * 50)
+    
+    # Create backup of original api_routes.py
+    try:
+        with open('api_routes.py', 'r') as f:
+            original_content = f.read()
+        
+        with open('api_routes_backup.py', 'w') as f:
+            f.write(original_content)
+        
+        print("✅ Backed up original api_routes.py")
+    except Exception as e:
+        print(f"⚠️ Could not backup original file: {e}")
+    
+    # Create simplified API routes
+    simplified_content = create_no_verification_api_routes()
+    
+    try:
+        with open('api_routes_simple.py', 'w') as f:
+            f.write(simplified_content)
+        
+        print("✅ Created simplified API routes (api_routes_simple.py)")
+    except Exception as e:
+        print(f"❌ Failed to create simplified routes: {e}")
+        return False
+    
+    print("\n📋 WHAT THIS FIX DOES:")
+    print("✅ Removes email verification requirement")
+    print("✅ Allows immediate user registration")
+    print("✅ Provides basic login/register functionality")
+    print("✅ Maintains room ratings API")
+    
+    print("\n🚀 NEXT STEPS:")
+    print("1. Replace api_routes.py with api_routes_simple.py")
+    print("2. Commit and push changes")
+    print("3. Redeploy on Render")
+    print("4. Test registration with new email")
+    
+    return True
+
+if __name__ == "__main__":
+    apply_no_verification_fix()
