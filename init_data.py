@@ -13,13 +13,14 @@ def create_initial_data():
         admin_user = User.query.filter_by(email='admin@hotel.com').first()
         if not admin_user:
             admin_user = User(
+                username='admin',
                 email='admin@hotel.com',
-                password=generate_password_hash('admin123'),
                 first_name='Admin',
                 last_name='User',
-                role='admin',
+                is_admin=True,
                 is_verified=True
             )
+            admin_user.set_password('admin123')
             db.session.add(admin_user)
             print("✅ Created admin user")
         
@@ -27,13 +28,14 @@ def create_initial_data():
         test_user = User.query.filter_by(email='test@hotel.com').first()
         if not test_user:
             test_user = User(
+                username='testuser',
                 email='test@hotel.com',
-                password=generate_password_hash('test123'),
                 first_name='Test',
                 last_name='User',
-                role='customer',
+                is_admin=False,
                 is_verified=True
             )
+            test_user.set_password('test123')
             db.session.add(test_user)
             print("✅ Created test user")
         
