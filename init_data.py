@@ -9,26 +9,32 @@ import logging
 def create_initial_data():
     """Create initial data for the application"""
     try:
-        # Create admin user
-        admin_user = User.query.filter_by(email='admin@hotel.com').first()
-        if not admin_user:
-            try:
-                admin_user = User(
-                    username='admin',
-                    email='admin@hotel.com',
-                    first_name='Admin',
-                    last_name='User',
-                    is_admin=True,
-                    is_verified=True,
-                    verification_code=None
-                )
-                admin_user.set_password('admin123')
-                db.session.add(admin_user)
-                db.session.flush()  # Get the ID
-                print(f"✅ Created admin user with ID: {admin_user.id}")
-            except Exception as e:
-                print(f"❌ Error creating admin user: {str(e)}")
-                db.session.rollback()
+        # Create admin users (both email addresses for compatibility)
+        admin_emails = [
+            ('admin@hotel.com', 'admin'),
+            ('admin@easyhotel.com', 'admin2')
+        ]
+        
+        for email, username in admin_emails:
+            admin_user = User.query.filter_by(email=email).first()
+            if not admin_user:
+                try:
+                    admin_user = User(
+                        username=username,
+                        email=email,
+                        first_name='Admin',
+                        last_name='User',
+                        is_admin=True,
+                        is_verified=True,
+                        verification_code=None
+                    )
+                    admin_user.set_password('admin123')
+                    db.session.add(admin_user)
+                    db.session.flush()  # Get the ID
+                    print(f"✅ Created admin user: {email} with ID: {admin_user.id}")
+                except Exception as e:
+                    print(f"❌ Error creating admin user {email}: {str(e)}")
+                    db.session.rollback()
         
         # Create test user
         test_user = User.query.filter_by(email='test@hotel.com').first()
