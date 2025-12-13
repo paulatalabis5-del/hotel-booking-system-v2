@@ -12,60 +12,70 @@ def create_initial_data():
         # Create admin user
         admin_user = User.query.filter_by(email='admin@hotel.com').first()
         if not admin_user:
-            admin_user = User(
-                username='admin',
-                email='admin@hotel.com',
-                first_name='Admin',
-                last_name='User',
-                is_admin=True,
-                is_verified=True,
-                verification_code=None
-            )
-            admin_user.set_password('admin123')
-            db.session.add(admin_user)
-            print("✅ Created admin user")
+            try:
+                admin_user = User(
+                    username='admin',
+                    email='admin@hotel.com',
+                    first_name='Admin',
+                    last_name='User',
+                    is_admin=True,
+                    is_verified=True,
+                    verification_code=None
+                )
+                admin_user.set_password('admin123')
+                db.session.add(admin_user)
+                db.session.flush()  # Get the ID
+                print(f"✅ Created admin user with ID: {admin_user.id}")
+            except Exception as e:
+                print(f"❌ Error creating admin user: {str(e)}")
+                db.session.rollback()
         
         # Create test user
         test_user = User.query.filter_by(email='test@hotel.com').first()
         if not test_user:
-            test_user = User(
-                username='testuser',
-                email='test@hotel.com',
-                first_name='Test',
-                last_name='User',
-                is_admin=False,
-                is_verified=True,
-                verification_code=None
-            )
-            test_user.set_password('test123')
-            db.session.add(test_user)
-            print("✅ Created test user")
+            try:
+                test_user = User(
+                    username='testuser',
+                    email='test@hotel.com',
+                    first_name='Test',
+                    last_name='User',
+                    is_admin=False,
+                    is_verified=True,
+                    verification_code=None
+                )
+                test_user.set_password('test123')
+                db.session.add(test_user)
+                db.session.flush()  # Get the ID
+                print(f"✅ Created test user with ID: {test_user.id}")
+            except Exception as e:
+                print(f"❌ Error creating test user: {str(e)}")
+                db.session.rollback()
         
         # Create sample rooms
         rooms_data = [
             {
                 'name': 'Deluxe Room',
                 'description': 'Spacious room with city view',
-                'price': 2500.00,
+                'price_per_night': 2500.00,
                 'capacity': 2,
-                'room_type': 'Deluxe',
-                'is_available': True
+                'room_number': 'D001',
+                'status': 'available'
             },
             {
                 'name': 'Standard Room', 
                 'description': 'Comfortable standard accommodation',
-                'price': 1800.00,
+                'price_per_night': 1800.00,
                 'capacity': 2,
-                'room_type': 'Standard',
-                'is_available': True
+                'room_number': 'S001',
+                'status': 'available'
             },
             {
                 'name': 'Suite Room',
                 'description': 'Luxury suite with premium amenities',
-                'price': 4000.00,
+                'price_per_night': 4000.00,
                 'capacity': 4,
-                'room_type': 'Suite',
-                'is_available': True
+                'room_number': 'SU001',
+                'status': 'available'
             }
         ]
         

@@ -19,7 +19,7 @@ api_bp = Blueprint('email_verification_api', __name__, url_prefix='/api')
 JWT_SECRET_KEY = os.getenv('JWT_SECRET_KEY', 'your-secret-key-here')
 JWT_ALGORITHM = 'HS256'
 SENDGRID_API_KEY = os.getenv('SENDGRID_API_KEY')
-EMAIL_FROM = os.getenv('EMAIL_FROM', 'noreply@easyhotel.com')
+EMAIL_FROM = os.getenv('EMAIL_FROM', 'hotelmanagementsystem48@gmail.com')
 
 def send_verification_email(email, verification_code):
     """Send verification email using SendGrid"""
@@ -88,7 +88,7 @@ def send_verification_email(email, verification_code):
         
         # Create SendGrid message
         message = Mail(
-            from_email=EMAIL_FROM,
+            from_email='hotelmanagementsystem48@gmail.com',
             to_emails=email,
             subject=subject,
             html_content=html_content,
