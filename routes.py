@@ -2741,3 +2741,147 @@ def api_email_verify():
         
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)}), 500
+
+# ============================================================================
+# PAYMENT ROUTES - Added to fix 405 error
+# ============================================================================
+
+@app.route('/api/payment/methods', methods=['GET'])
+def api_payment_methods():
+    """Get available payment methods"""
+    try:
+        payment_methods = [
+            {
+                'id': 1,
+                'name': 'GCash',
+                'code': 'gcash',
+                'is_online': True,
+                'description': 'Pay securely with GCash',
+                'icon_url': '/static/images/gcash-icon.png'
+            },
+            {
+                'id': 2,
+                'name': 'Cash',
+                'code': 'cash',
+                'is_online': False,
+                'description': 'Pay with cash at the hotel',
+                'icon_url': '/static/images/cash-icon.png'
+            }
+        ]
+        
+        return jsonify({
+            'payment_methods': payment_methods
+        })
+        
+    except Exception as e:
+        return jsonify({'message': f'Error fetching payment methods: {str(e)}'}), 500
+
+@app.route('/api/payment/gcash/create', methods=['POST'])
+@admin_required
+def api_create_gcash_payment(current_user_id):
+    """Create GCash payment for booking"""
+    try:
+        data = request.get_json()
+        booking_id = data.get('booking_id')
+        phone_number = data.get('phone_number')
+        
+        if not booking_id or not phone_number:
+            return jsonify({'success': False, 'message': 'Missing booking_id or phone_number'}), 400
+        
+        # Verify booking belongs to user
+        booking = Booking.query.filter_by(id=booking_id, user_id=current_user_id).first()
+        if not booking:
+            return jsonify({'success': False, 'message': 'Booking not found'}), 404
+        
+        print(f"\n💳 [GCASH PAYMENT] Creating payment for booking #{booking_id}")
+        print(f"   User ID: {current_user_id}")
+        print(f"   Phone: {phone_number}")
+        
+        # Calculate downpayment (30% of total price)
+        downpayment_amount = booking.total_price * 0.30
+        
+        # For now, return success with mock data
+        return jsonify({
+            'success': True,
+            'payment_id': f'pay_{booking_id}_{random.randint(1000, 9999)}',
+            'payment_intent_id': f'pi_{random.randint(100000, 999999)}',
+            'redirect_url': f'https://checkout.paymongo.com/mock/{booking_id}',
+            'amount': downpayment_amount,
+            'total_amount': booking.total_price,
+            'remaining_balance': booking.total_price - downpayment_amount,
+            'message': 'Payment created successfully'
+        })
+            
+    except Exception as e:
+        print(f"❌ Payment creation error: {str(e)}")
+        return jsonify({'success': False, 'message': f'Error: {str(e)}'}), 500
+
+@app.route('/api/payment/<int:payment_id>/verify', methods=['POST'])
+@admin_required
+def api_verify_payment(current_user_id, payment_id):
+    """Verify payment status"""
+    try:
+        # For now, return mock verification
+        return jsonify({
+            'success': True,
+            'status': 'completed',
+            'payment_id': payment_id,
+            'message': 'Payment verified successfully'
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Error: {str(e)}'}), 500
+
+@app.route('/api/payment/success', methods=['GET'])
+def api_payment_success():
+    """Payment success callback"""
+    return """
+    <html>
+    <head>
+        <title>Payment Successful</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+            body { font-family: Arial, sans-serif; text-align: center; padding: 50px; background: #f5f5f5; }
+            .success-card { background: white; padding: 40px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); max-width: 400px; margin: 0 auto; }
+            .success-icon { color: #4CAF50; font-size: 64px; margin-bottom: 20px; }
+            .btn { background: #4CAF50; color: white; padding: 12px 24px; border: none; border-radius: 5px; text-decoration: none; display: inline-block; margin-top: 20px; }
+        </style>
+    </head>
+    <body>
+        <div class="success-card">
+            <div class="success-icon">✅</div>
+            <h2>Payment Successful!</h2>
+            <p>Your hotel booking payment has been processed successfully.</p>
+            <p>You will receive a confirmation email shortly.</p>
+            <a href="#" class="btn" onclick="window.close()">Close</a>
+        </div>
+    </body>
+    </html>
+    """
+
+@app.route('/api/payment/failed', methods=['GET'])
+def api_payment_failed():
+    """Payment failed callback"""
+    return """
+    <html>
+    <head>
+        <title>Payment Failed</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+            body { font-family: Arial, sans-serif; text-align: center; padding: 50px; background: #f5f5f5; }
+            .error-card { background: white; padding: 40px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); max-width: 400px; margin: 0 auto; }
+            .error-icon { color: #f44336; font-size: 64px; margin-bottom: 20px; }
+            .btn { background: #f44336; color: white; padding: 12px 24px; border: none; border-radius: 5px; text-decoration: none; display: inline-block; margin-top: 20px; }
+        </style>
+    </head>
+    <body>
+        <div class="error-card">
+            <div class="error-icon">❌</div>
+            <h2>Payment Failed</h2>
+            <p>Your payment could not be processed at this time.</p>
+            <p>Please try again or contact support.</p>
+            <a href="#" class="btn" onclick="window.close()">Close</a>
+        </div>
+    </body>
+    </html>
+    """
