@@ -373,3 +373,194 @@ def health_check():
         'timestamp': datetime.utcnow().isoformat(),
         'email_configured': bool(SENDGRID_API_KEY)
     }), 200
+# Import payment service
+try:
+    from payment_service import gcash_service
+    from models import Payment, Booking
+    PAYMENT_SERVICE_AVAILABLE = True
+    print("✅ Payment service imported successfully")
+except ImportError as e:
+    print(f"⚠️ Payment service not available: {e}")
+    PAYMENT_SERVICE_AVAILABLE = False
+
+# Payment Routes
+@api_bp.route('/payment/methods', methods=['GET'])
+def get_payment_methods():
+    """Get available payment methods"""
+    try:
+        # Return basic payment methods
+        payment_methods = [
+            {
+                'id': 1,
+                'name': 'GCash',
+                'code': 'gcash',
+                'is_online': True,
+                'description': 'Pay securely with GCash',
+                'icon_url': '/static/images/gcash-icon.png'
+            },
+            {
+                'id': 2,
+                'name': 'Cash',
+                'code': 'cash',
+                'is_online': False,
+                'description': 'Pay with cash at the hotel',
+                'icon_url': '/static/images/cash-icon.png'
+            }
+        ]
+        
+        return jsonify({
+            'payment_methods': payment_methods
+        })
+        
+    except Exception as e:
+        return jsonify({'message': f'Error fetching payment methods: {str(e)}'}), 500
+
+@api_bp.route('/payment/gcash/create', methods=['POST'])
+@token_required
+def create_gcash_payment(current_user_id):
+    """Create GCash payment for booking"""
+    try:
+        if not PAYMENT_SERVICE_AVAILABLE:
+            return jsonify({
+                'success': False, 
+                'message': 'Payment service temporarily unavailable'
+            }), 503
+        
+        data = request.get_json()
+        booking_id = data.get('booking_id')
+        phone_number = data.get('phone_number')
+        
+        if not booking_id or not phone_number:
+            return jsonify({'success': False, 'message': 'Missing booking_id or phone_number'}), 400
+        
+        # Verify booking belongs to user
+        booking = Booking.query.filter_by(id=booking_id, user_id=current_user_id).first()
+        if not booking:
+            return jsonify({'success': False, 'message': 'Booking not found'}), 404
+        
+        print(f"\n💳 [GCASH PAYMENT] Creating payment for booking #{booking_id}")
+        print(f"   User ID: {current_user_id}")
+        print(f"   Phone: {phone_number}")
+        
+        # Check if booking already has a completed payment
+        completed_payment = Payment.query.filter(
+            Payment.booking_id == booking_id,
+            Payment.payment_status == 'completed'
+        ).first()
+        
+        if completed_payment and booking.payment_status not in ['refunded', 'pending']:
+            return jsonify({'success': False, 'message': 'Booking already paid'}), 400
+        
+        # Delete any existing pending payment
+        pending_payment = Payment.query.filter_by(
+            booking_id=booking_id, 
+            payment_status='pending'
+        ).first()
+        
+        if pending_payment:
+            db.session.delete(pending_payment)
+            db.session.commit()
+        
+        # Calculate downpayment (30% of total price)
+        downpayment_amount = booking.total_price * 0.30
+        
+        # Create GCash payment
+        result = gcash_service.create_gcash_payment_intent(
+            booking_id=booking_id,
+            amount=downpayment_amount,
+            user_phone=phone_number
+        )
+        
+        if result['success']:
+            return jsonify({
+                'success': True,
+                'payment_id': result['payment_id'],
+                'payment_intent_id': result['payment_intent_id'],
+                'client_key': result.get('client_key'),
+                'redirect_url': result.get('redirect_url'),
+                'amount': downpayment_amount,
+                'total_amount': booking.total_price,
+                'remaining_balance': booking.total_price - downpayment_amount
+            })
+        else:
+            return jsonify(result), 400
+            
+    except Exception as e:
+        print(f"❌ Payment creation error: {str(e)}")
+        return jsonify({'success': False, 'message': f'Error: {str(e)}'}), 500
+
+@api_bp.route('/payment/<int:payment_id>/verify', methods=['POST'])
+@token_required
+def verify_payment(current_user_id, payment_id):
+    """Verify payment status"""
+    try:
+        if not PAYMENT_SERVICE_AVAILABLE:
+            return jsonify({
+                'success': False, 
+                'message': 'Payment verification temporarily unavailable'
+            }), 503
+        
+        # Verify payment belongs to user
+        payment = Payment.query.filter_by(id=payment_id).first()
+        if not payment or payment.user_id != current_user_id:
+            return jsonify({'success': False, 'message': 'Payment not found'}), 404
+        
+        result = gcash_service.verify_payment(payment_id)
+        return jsonify(result)
+        
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Error: {str(e)}'}), 500
+
+@api_bp.route('/payment/success', methods=['GET'])
+def payment_success():
+    """Payment success callback"""
+    return """
+    <html>
+    <head>
+        <title>Payment Successful</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+            body { font-family: Arial, sans-serif; text-align: center; padding: 50px; background: #f5f5f5; }
+            .success-card { background: white; padding: 40px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); max-width: 400px; margin: 0 auto; }
+            .success-icon { color: #4CAF50; font-size: 64px; margin-bottom: 20px; }
+            .btn { background: #4CAF50; color: white; padding: 12px 24px; border: none; border-radius: 5px; text-decoration: none; display: inline-block; margin-top: 20px; }
+        </style>
+    </head>
+    <body>
+        <div class="success-card">
+            <div class="success-icon">✅</div>
+            <h2>Payment Successful!</h2>
+            <p>Your hotel booking payment has been processed successfully.</p>
+            <p>You will receive a confirmation email shortly.</p>
+            <a href="#" class="btn" onclick="window.close()">Close</a>
+        </div>
+    </body>
+    </html>
+    """
+
+@api_bp.route('/payment/failed', methods=['GET'])
+def payment_failed():
+    """Payment failed callback"""
+    return """
+    <html>
+    <head>
+        <title>Payment Failed</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+            body { font-family: Arial, sans-serif; text-align: center; padding: 50px; background: #f5f5f5; }
+            .error-card { background: white; padding: 40px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); max-width: 400px; margin: 0 auto; }
+            .error-icon { color: #f44336; font-size: 64px; margin-bottom: 20px; }
+            .btn { background: #f44336; color: white; padding: 12px 24px; border: none; border-radius: 5px; text-decoration: none; display: inline-block; margin-top: 20px; }
+        </style>
+    </head>
+    <body>
+        <div class="error-card">
+            <div class="error-icon">❌</div>
+            <h2>Payment Failed</h2>
+            <p>Your payment could not be processed at this time.</p>
+            <p>Please try again or contact support.</p>
+            <a href="#" class="btn" onclick="window.close()">Close</a>
+        </div>
+    </body>
+    </html>
+    """
