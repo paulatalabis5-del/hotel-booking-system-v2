@@ -3127,7 +3127,7 @@ def api_get_user_bookings():
                 token = token[7:]
             
             import jwt
-            data_token = jwt.decode(token, 'YO-F4JdMCF6qqSdJtqcGS6p8THtVQcHcXZaKmI7XC5w', algorithms=['HS256'])
+            data_token = jwt.decode(token, 'your-secret-key-here', algorithms=['HS256'])
             current_user_id = data_token['user_id']
             
         except jwt.ExpiredSignatureError:
@@ -3175,7 +3175,7 @@ def api_create_user_booking():
                 token = token[7:]
             
             import jwt
-            data_token = jwt.decode(token, 'YO-F4JdMCF6qqSdJtqcGS6p8THtVQcHcXZaKmI7XC5w', algorithms=['HS256'])
+            data_token = jwt.decode(token, 'your-secret-key-here', algorithms=['HS256'])
             current_user_id = data_token['user_id']
             
             # Verify user exists
