@@ -400,8 +400,6 @@ def token_required(f):
         
         return f(current_user_id, *args, **kwargs)
     return decorated
-        return f(current_user_id, *args, **kwargs)
-    return decorated
 
 # Import payment service and models
 try:

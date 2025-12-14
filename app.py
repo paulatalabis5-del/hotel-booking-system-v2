@@ -54,7 +54,7 @@ with app.app_context():
     # Register API routes blueprint
     try:
         from api_routes import api_bp
-        if 'unique_api_blueprint_xyz789' not in [bp.name for bp in app.blueprints.values()]:
+        if 'email_verification_api' not in [bp.name for bp in app.blueprints.values()]:
             app.register_blueprint(api_bp)
             print("✅ API Blueprint registered successfully")
     except Exception as e:
