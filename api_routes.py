@@ -401,15 +401,38 @@ def token_required(f):
         return f(current_user_id, *args, **kwargs)
     return decorated
 
-# Import payment service
+# Import payment service and models
+try:
+    from models import Payment, Booking
+    print("✅ Payment models imported successfully")
+    MODELS_AVAILABLE = True
+except ImportError as e:
+    print(f"❌ Payment models not available: {e}")
+    MODELS_AVAILABLE = False
+
 try:
     from payment_service import gcash_service
-    from models import Payment, Booking
     PAYMENT_SERVICE_AVAILABLE = True
     print("✅ Payment service imported successfully")
 except ImportError as e:
     print(f"⚠️ Payment service not available: {e}")
     PAYMENT_SERVICE_AVAILABLE = False
+    
+    # Create a mock service for basic functionality
+    class MockGCashService:
+        def create_gcash_payment_intent(self, booking_id, amount, user_phone):
+            return {
+                'success': False,
+                'message': 'Payment service temporarily unavailable'
+            }
+        
+        def verify_payment(self, payment_id):
+            return {
+                'success': False,
+                'message': 'Payment verification temporarily unavailable'
+            }
+    
+    gcash_service = MockGCashService()
 
 # Payment Routes
 @api_bp.route('/payment/methods', methods=['GET'])
@@ -448,6 +471,12 @@ def get_payment_methods():
 def create_gcash_payment(current_user_id):
     """Create GCash payment for booking"""
     try:
+        if not MODELS_AVAILABLE:
+            return jsonify({
+                'success': False, 
+                'message': 'Payment models not available'
+            }), 503
+            
         if not PAYMENT_SERVICE_AVAILABLE:
             return jsonify({
                 'success': False, 
@@ -522,6 +551,12 @@ def create_gcash_payment(current_user_id):
 def verify_payment(current_user_id, payment_id):
     """Verify payment status"""
     try:
+        if not MODELS_AVAILABLE:
+            return jsonify({
+                'success': False, 
+                'message': 'Payment models not available'
+            }), 503
+            
         if not PAYMENT_SERVICE_AVAILABLE:
             return jsonify({
                 'success': False, 
