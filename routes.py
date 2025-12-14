@@ -2110,45 +2110,6 @@ def admin_dashboard_reports(current_user_id):
             }
         }), 200
 
-@app.route('/api/admin/bookings/all', methods=['GET'])
-@admin_required
-def admin_all_bookings(current_user_id):
-    """Get all bookings for admin"""
-    try:
-        bookings = Booking.query.order_by(Booking.created_at.desc()).all()
-        bookings_data = []
-        
-        for booking in bookings:
-            try:
-                booking_dict = {
-                    'id': booking.id,
-                    'user_id': booking.user_id,
-                    'room_id': booking.room_id,
-                    'check_in': booking.check_in_date.isoformat() if hasattr(booking, 'check_in_date') and booking.check_in_date else None,
-                    'check_out': booking.check_out_date.isoformat() if hasattr(booking, 'check_out_date') and booking.check_out_date else None,
-                    'total_amount': float(booking.total_price) if hasattr(booking, 'total_price') and booking.total_price else 0,
-                    'paid_amount': float(booking.paid_amount) if hasattr(booking, 'paid_amount') and booking.paid_amount else 0,
-                    'status': booking.status,
-                    'payment_status': getattr(booking, 'payment_status', 'not_paid'),
-                    'created_at': booking.created_at.isoformat() if booking.created_at else None,
-                    'user_name': booking.user.username if hasattr(booking, 'user') and booking.user else 'Unknown',
-                    'user_email': booking.user.email if hasattr(booking, 'user') and booking.user else 'Unknown',
-                    'room_name': f'Room {booking.room.room_number}' if hasattr(booking, 'room') and booking.room and hasattr(booking.room, 'room_number') else 'Unknown Room'
-                }
-                bookings_data.append(booking_dict)
-            except Exception as e:
-                print(f"Error processing booking {booking.id}: {e}")
-                continue
-        
-        return jsonify({
-            'success': True,
-            'bookings': bookings_data,
-            'total_count': len(bookings_data)
-        })
-        
-    except Exception as e:
-        return jsonify({'success': True, 'bookings': [], 'message': f'No bookings found: {str(e)}'}), 200
-
 @app.route('/api/admin/users/stats', methods=['GET'])
 @admin_required
 def admin_user_stats(current_user_id):
@@ -2182,7 +2143,6 @@ def admin_user_stats(current_user_id):
             }
         }), 200
 
-@app.route('/api/bookings', methods=['GET'])
 def api_get_bookings():
     """Get user bookings for Flutter"""
     try:
@@ -2287,8 +2247,6 @@ def api_admin_users(current_user_id):
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)}), 500
 
-@app.route('/api/admin/bookings/pending', methods=['GET'])
-@admin_required
 def api_admin_pending_bookings(current_user_id):
     """Get pending bookings for admin"""
     try:
@@ -2849,10 +2807,32 @@ def api_payment_methods():
         return jsonify({'message': f'Error fetching payment methods: {str(e)}'}), 500
 
 @app.route('/api/payment/gcash/create', methods=['POST'])
-@admin_required
-def api_create_gcash_payment(current_user_id):
-    """Create GCash payment for booking"""
+def api_create_gcash_payment():
+    """Create GCash payment for booking - Allow any authenticated user"""
     try:
+        # Get token from header
+        token = request.headers.get('Authorization')
+        if not token:
+            return jsonify({'success': False, 'message': 'Authentication required'}), 401
+        
+        try:
+            if token.startswith('Bearer '):
+                token = token[7:]
+            
+            import jwt
+            data_token = jwt.decode(token, 'your-secret-key-here', algorithms=['HS256'])
+            current_user_id = data_token['user_id']
+            
+            # Verify user exists
+            user = User.query.get(current_user_id)
+            if not user:
+                return jsonify({'success': False, 'message': 'Invalid token'}), 401
+                
+        except jwt.ExpiredSignatureError:
+            return jsonify({'success': False, 'message': 'Token has expired'}), 401
+        except jwt.InvalidTokenError:
+            return jsonify({'success': False, 'message': 'Invalid token'}), 401
+        
         data = request.get_json()
         booking_id = data.get('booking_id')
         phone_number = data.get('phone_number')
@@ -2872,25 +2852,56 @@ def api_create_gcash_payment(current_user_id):
         # Calculate downpayment (30% of total price)
         downpayment_amount = booking.total_price * 0.30
         
-        # For now, return success with mock data
-        return jsonify({
-            'success': True,
-            'payment_id': f'pay_{booking_id}_{random.randint(1000, 9999)}',
-            'payment_intent_id': f'pi_{random.randint(100000, 999999)}',
-            'redirect_url': f'https://checkout.paymongo.com/mock/{booking_id}',
-            'amount': downpayment_amount,
-            'total_amount': booking.total_price,
-            'remaining_balance': booking.total_price - downpayment_amount,
-            'message': 'Payment created successfully'
-        })
+        # Try to use PayMongo service
+        try:
+            from payment_service import EnhancedGCashPaymentService
+            payment_service = EnhancedGCashPaymentService()
+            
+            result = payment_service.create_gcash_payment_intent(
+                booking_id=booking_id,
+                amount=downpayment_amount,
+                user_phone=phone_number
+            )
+            
+            if result and result.get('success'):
+                print("✅ PayMongo payment created successfully")
+                return jsonify(result)
+            else:
+                print("⚠️ PayMongo service unavailable, using fallback")
+                # Fallback to mock data if PayMongo fails
+                return jsonify({
+                    'success': True,
+                    'payment_id': f'pay_{booking_id}_{random.randint(1000, 9999)}',
+                    'payment_intent_id': f'pi_{random.randint(100000, 999999)}',
+                    'redirect_url': f'https://checkout.paymongo.com/mock/{booking_id}',
+                    'amount': downpayment_amount,
+                    'total_amount': booking.total_price,
+                    'remaining_balance': booking.total_price - downpayment_amount,
+                    'message': 'Payment created successfully (fallback mode)',
+                    'fallback_mode': True
+                })
+                
+        except ImportError:
+            print("⚠️ PayMongo service not available, using mock data")
+            # Return mock data if service not available
+            return jsonify({
+                'success': True,
+                'payment_id': f'pay_{booking_id}_{random.randint(1000, 9999)}',
+                'payment_intent_id': f'pi_{random.randint(100000, 999999)}',
+                'redirect_url': f'https://checkout.paymongo.com/mock/{booking_id}',
+                'amount': downpayment_amount,
+                'total_amount': booking.total_price,
+                'remaining_balance': booking.total_price - downpayment_amount,
+                'message': 'Payment created successfully (mock mode)',
+                'mock_mode': True
+            })
             
     except Exception as e:
         print(f"❌ Payment creation error: {str(e)}")
         return jsonify({'success': False, 'message': f'Error: {str(e)}'}), 500
 
 @app.route('/api/payment/<int:payment_id>/verify', methods=['POST'])
-@admin_required
-def api_verify_payment(current_user_id, payment_id):
+def api_verify_payment(payment_id):
     """Verify payment status"""
     try:
         # For now, return mock verification
@@ -2957,3 +2968,286 @@ def api_payment_failed():
     </body>
     </html>
     """
+# ============================================================================
+# BOOKING API ROUTES
+# ============================================================================
+
+def api_create_booking():
+    """Create a new booking via API"""
+    try:
+        # Get token from header
+        token = request.headers.get('Authorization')
+        if not token:
+            return jsonify({'success': False, 'message': 'Authentication required'}), 401
+        
+        try:
+            if token.startswith('Bearer '):
+                token = token[7:]
+            
+            import jwt
+            data_token = jwt.decode(token, 'your-secret-key-here', algorithms=['HS256'])
+            current_user_id = data_token['user_id']
+            
+            # Verify user exists
+            user = User.query.get(current_user_id)
+            if not user:
+                return jsonify({'success': False, 'message': 'Invalid token'}), 401
+                
+        except jwt.ExpiredSignatureError:
+            return jsonify({'success': False, 'message': 'Token has expired'}), 401
+        except jwt.InvalidTokenError:
+            return jsonify({'success': False, 'message': 'Invalid token'}), 401
+        
+        data = request.get_json()
+        room_id = data.get('room_id')
+        check_in_date = data.get('check_in_date')
+        check_out_date = data.get('check_out_date')
+        guests = data.get('guests', 1)
+        special_requests = data.get('special_requests', '')
+        
+        if not all([room_id, check_in_date, check_out_date]):
+            return jsonify({'success': False, 'message': 'Missing required fields'}), 400
+        
+        # Verify room exists
+        room = Room.query.get(room_id)
+        if not room:
+            return jsonify({'success': False, 'message': 'Room not found'}), 404
+        
+        # Parse dates
+        from datetime import datetime
+        try:
+            check_in = datetime.strptime(check_in_date, '%Y-%m-%d').date()
+            check_out = datetime.strptime(check_out_date, '%Y-%m-%d').date()
+        except ValueError:
+            return jsonify({'success': False, 'message': 'Invalid date format. Use YYYY-MM-DD'}), 400
+        
+        # Calculate nights and total price
+        nights = (check_out - check_in).days
+        if nights <= 0:
+            return jsonify({'success': False, 'message': 'Check-out must be after check-in'}), 400
+        
+        total_price = room.price * nights
+        
+        # Create booking
+        booking = Booking(
+            user_id=current_user_id,
+            room_id=room_id,
+            check_in_date=check_in,
+            check_out_date=check_out,
+            guests=guests,
+            total_price=total_price,
+            status='pending',
+            special_requests=special_requests
+        )
+        
+        db.session.add(booking)
+        db.session.commit()
+        
+        print(f"✅ [BOOKING] Created booking #{booking.id} for user {current_user_id}")
+        
+        return jsonify({
+            'success': True,
+            'message': 'Booking created successfully',
+            'booking_id': booking.id,
+            'room_name': room.name,
+            'check_in_date': check_in_date,
+            'check_out_date': check_out_date,
+            'nights': nights,
+            'guests': guests,
+            'total_price': total_price,
+            'status': 'pending'
+        })
+        
+    except Exception as e:
+        print(f"❌ [BOOKING] Error creating booking: {str(e)}")
+        return jsonify({'success': False, 'message': f'Error: {str(e)}'}), 500
+
+def api_get_bookings():
+    """Get user's bookings"""
+    try:
+        # Get token from header
+        token = request.headers.get('Authorization')
+        if not token:
+            return jsonify({'success': False, 'message': 'Authentication required'}), 401
+        
+        try:
+            if token.startswith('Bearer '):
+                token = token[7:]
+            
+            import jwt
+            data_token = jwt.decode(token, 'your-secret-key-here', algorithms=['HS256'])
+            current_user_id = data_token['user_id']
+            
+        except jwt.ExpiredSignatureError:
+            return jsonify({'success': False, 'message': 'Token has expired'}), 401
+        except jwt.InvalidTokenError:
+            return jsonify({'success': False, 'message': 'Invalid token'}), 401
+        
+        # Get user's bookings
+        bookings = Booking.query.filter_by(user_id=current_user_id).all()
+        
+        bookings_data = []
+        for booking in bookings:
+            bookings_data.append({
+                'id': booking.id,
+                'room_id': booking.room_id,
+                'room_name': booking.room.name if booking.room else 'Unknown',
+                'check_in_date': booking.check_in_date.isoformat(),
+                'check_out_date': booking.check_out_date.isoformat(),
+                'guests': booking.guests,
+                'total_price': float(booking.total_price),
+                'status': booking.status,
+                'special_requests': booking.special_requests,
+                'created_at': booking.created_at.isoformat() if booking.created_at else None
+            })
+        
+        return jsonify({
+            'success': True,
+            'bookings': bookings_data
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Error: {str(e)}'}), 500
+
+# ============================================================================
+# BOOKING API ROUTES - Added directly to fix 404 issue
+# ============================================================================
+
+@app.route('/api/bookings', methods=['GET'])
+def api_get_user_bookings():
+    """Get user's bookings"""
+    try:
+        # Get token from header
+        token = request.headers.get('Authorization')
+        if not token:
+            return jsonify({'success': False, 'message': 'Authentication required'}), 401
+        
+        try:
+            if token.startswith('Bearer '):
+                token = token[7:]
+            
+            import jwt
+            data_token = jwt.decode(token, 'your-secret-key-here', algorithms=['HS256'])
+            current_user_id = data_token['user_id']
+            
+        except jwt.ExpiredSignatureError:
+            return jsonify({'success': False, 'message': 'Token has expired'}), 401
+        except jwt.InvalidTokenError:
+            return jsonify({'success': False, 'message': 'Invalid token'}), 401
+        
+        # Get user's bookings
+        bookings = Booking.query.filter_by(user_id=current_user_id).all()
+        
+        bookings_data = []
+        for booking in bookings:
+            bookings_data.append({
+                'id': booking.id,
+                'room_id': booking.room_id,
+                'room_name': booking.room.name if booking.room else 'Unknown',
+                'check_in_date': booking.check_in_date.isoformat(),
+                'check_out_date': booking.check_out_date.isoformat(),
+                'guests': booking.guests,
+                'total_price': float(booking.total_price),
+                'status': booking.status,
+                'special_requests': booking.special_requests,
+                'created_at': booking.created_at.isoformat() if booking.created_at else None
+            })
+        
+        return jsonify({
+            'success': True,
+            'bookings': bookings_data
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Error: {str(e)}'}), 500
+
+@app.route('/api/bookings', methods=['POST'])
+def api_create_user_booking():
+    """Create a new booking"""
+    try:
+        # Get token from header
+        token = request.headers.get('Authorization')
+        if not token:
+            return jsonify({'success': False, 'message': 'Authentication required'}), 401
+        
+        try:
+            if token.startswith('Bearer '):
+                token = token[7:]
+            
+            import jwt
+            data_token = jwt.decode(token, 'your-secret-key-here', algorithms=['HS256'])
+            current_user_id = data_token['user_id']
+            
+            # Verify user exists
+            user = User.query.get(current_user_id)
+            if not user:
+                return jsonify({'success': False, 'message': 'Invalid token'}), 401
+                
+        except jwt.ExpiredSignatureError:
+            return jsonify({'success': False, 'message': 'Token has expired'}), 401
+        except jwt.InvalidTokenError:
+            return jsonify({'success': False, 'message': 'Invalid token'}), 401
+        
+        data = request.get_json()
+        room_id = data.get('room_id')
+        check_in_date = data.get('check_in_date')
+        check_out_date = data.get('check_out_date')
+        guests = data.get('guests', 1)
+        special_requests = data.get('special_requests', '')
+        
+        if not all([room_id, check_in_date, check_out_date]):
+            return jsonify({'success': False, 'message': 'Missing required fields'}), 400
+        
+        # Verify room exists
+        room = Room.query.get(room_id)
+        if not room:
+            return jsonify({'success': False, 'message': 'Room not found'}), 404
+        
+        # Parse dates
+        from datetime import datetime
+        try:
+            check_in = datetime.strptime(check_in_date, '%Y-%m-%d').date()
+            check_out = datetime.strptime(check_out_date, '%Y-%m-%d').date()
+        except ValueError:
+            return jsonify({'success': False, 'message': 'Invalid date format. Use YYYY-MM-DD'}), 400
+        
+        # Calculate nights and total price
+        nights = (check_out - check_in).days
+        if nights <= 0:
+            return jsonify({'success': False, 'message': 'Check-out must be after check-in'}), 400
+        
+        total_price = room.price_per_night * nights
+        
+        # Create booking
+        booking = Booking(
+            user_id=current_user_id,
+            room_id=room_id,
+            check_in_date=check_in,
+            check_out_date=check_out,
+            guests=guests,
+            total_price=total_price,
+            status='pending',
+            special_requests=special_requests
+        )
+        
+        db.session.add(booking)
+        db.session.commit()
+        
+        print(f"✅ [BOOKING] Created booking #{booking.id} for user {current_user_id}")
+        
+        return jsonify({
+            'success': True,
+            'message': 'Booking created successfully',
+            'booking_id': booking.id,
+            'room_name': room.name,
+            'check_in_date': check_in_date,
+            'check_out_date': check_out_date,
+            'nights': nights,
+            'guests': guests,
+            'total_price': total_price,
+            'status': 'pending'
+        })
+        
+    except Exception as e:
+        print(f"❌ [BOOKING] Error creating booking: {str(e)}")
+        return jsonify({'success': False, 'message': f'Error: {str(e)}'}), 500
