@@ -16,7 +16,7 @@ from sendgrid.helpers.mail import Mail
 api_bp = Blueprint('email_verification_api', __name__, url_prefix='/api')
 
 # Configuration
-JWT_SECRET_KEY = os.getenv('JWT_SECRET_KEY', 'your-secret-key-here')
+JWT_SECRET_KEY = os.getenv('JWT_SECRET_KEY', 'YO-F4JdMCF6qqSdJtqcGS6p8THtVQcHcXZaKmI7XC5w')
 JWT_ALGORITHM = 'HS256'
 SENDGRID_API_KEY = os.getenv('SENDGRID_API_KEY')
 EMAIL_FROM = os.getenv('EMAIL_FROM', 'hotelmanagementsystem48@gmail.com')
