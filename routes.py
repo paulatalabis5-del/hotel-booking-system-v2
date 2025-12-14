@@ -1966,7 +1966,7 @@ def api_register():
             username=username, 
             email=email, 
             phone_number=phone_number,
-            is_verified=True,
+            is_verified=False,
             verification_code=verification_code
         )
         user.set_password(password)
@@ -1982,7 +1982,7 @@ def api_register():
         
         # Send verification email using local function
         print(f"📧 [REGISTER] Attempting to send verification email to: {email}")
-        email_sent = send_verification_email(email, user.username)
+        email_sent = send_verification_email(email, verification_code)
         print(f"📧 [REGISTER] Email send result: {email_sent}")
         
         if email_sent:
@@ -2481,27 +2481,42 @@ def api_verify_email():
         email = data.get('email')
         verification_code = data.get('verification_code')
         
+        print(f"🔍 [VERIFY] Email verification attempt for: {email}")
+        print(f"🔍 [VERIFY] Code provided: {verification_code}")
+        
         if not email or not verification_code:
             return jsonify({'success': False, 'message': 'Email and verification code required'}), 400
         
-        # For now, accept any 6-digit code (implement proper verification later)
+        # Validate code format
         if len(verification_code) != 6 or not verification_code.isdigit():
             return jsonify({'success': False, 'message': 'Invalid verification code format'}), 400
         
-        # Find user by email
-        user = User.query.filter_by(email=email).first()
-        if not user:
-            return jsonify({'success': False, 'message': 'User not found'}), 404
+        # Find user by email and verification code
+        user = User.query.filter_by(
+            email=email, 
+            verification_code=verification_code,
+            is_verified=False
+        ).first()
         
-        # Mark user as verified (add email_verified field if needed)
-        # For now, just return success
+        if not user:
+            print(f"❌ [VERIFY] Invalid verification code for: {email}")
+            return jsonify({'success': False, 'message': 'Invalid verification code'}), 400
+        
+        # Mark user as verified
+        user.is_verified = True
+        user.verification_code = None  # Clear the code
+        db.session.commit()
+        
+        print(f"✅ [VERIFY] Email verified successfully for: {email}")
+        
         return jsonify({
             'success': True,
-            'message': 'Email verified successfully',
-            'user': user.to_dict()
+            'message': 'Email verified successfully! You can now login.',
+            'user_id': user.id
         })
         
     except Exception as e:
+        print(f"❌ [VERIFY] Error: {str(e)}")
         return jsonify({'success': False, 'message': str(e)}), 500
 
 @app.route('/api/admin/staff/create', methods=['POST'])
@@ -2579,15 +2594,101 @@ def api_send_verification():
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)}), 500
 
-def send_verification_email(email, username):
-    """Send verification email to user"""
+def send_verification_email(email, verification_code):
+    """Send verification email using SendGrid"""
     try:
-        # For now, just return True to avoid email sending issues
-        # This allows registration to complete without email verification
-        print(f"📧 [EMAIL] Skipping email send to avoid encoding issues")
-        print(f"📧 [EMAIL] User {username} registered successfully")
-        return True
+        import os
+        import requests
         
+        # SendGrid configuration
+        SENDGRID_API_KEY = os.getenv('SENDGRID_API_KEY')
+        EMAIL_FROM = os.getenv('EMAIL_FROM', 'hotelmanagementsystem48@gmail.com')
+        
+        if not SENDGRID_API_KEY:
+            print("❌ SendGrid API key not found")
+            return False
+        
+        # Email content
+        subject = "Email Verification - Easy Hotel Booking"
+        html_content = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <title>Email Verification</title>
+            <style>
+                body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
+                .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+                .header {{ background: #4CAF50; color: white; padding: 20px; text-align: center; }}
+                .content {{ padding: 30px; background: #f9f9f9; }}
+                .code {{ font-size: 32px; font-weight: bold; color: #4CAF50; text-align: center; 
+                         padding: 20px; background: white; border: 2px dashed #4CAF50; margin: 20px 0; }}
+                .footer {{ text-align: center; padding: 20px; color: #666; }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <h1>🏨 Easy Hotel Booking</h1>
+                    <p>Email Verification Required</p>
+                </div>
+                <div class="content">
+                    <h2>Welcome to Easy Hotel Booking!</h2>
+                    <p>Thank you for registering with us. To complete your registration, please verify your email address.</p>
+                    
+                    <p><strong>Your verification code is:</strong></p>
+                    <div class="code">{verification_code}</div>
+                    
+                    <p>Please enter this 6-digit code in the app to verify your email address.</p>
+                    
+                    <p><strong>Important:</strong></p>
+                    <ul>
+                        <li>This code will expire in 24 hours</li>
+                        <li>If you didn't create this account, please ignore this email</li>
+                        <li>For security, never share this code with anyone</li>
+                    </ul>
+                </div>
+                <div class="footer">
+                    <p>Best regards,<br>Easy Hotel Booking Team</p>
+                    <p><small>This is an automated email. Please do not reply.</small></p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+        
+        # SendGrid API request
+        url = "https://api.sendgrid.com/v3/mail/send"
+        headers = {
+            "Authorization": f"Bearer {SENDGRID_API_KEY}",
+            "Content-Type": "application/json"
+        }
+        
+        data = {
+            "personalizations": [
+                {
+                    "to": [{"email": email}],
+                    "subject": subject
+                }
+            ],
+            "from": {"email": EMAIL_FROM, "name": "Easy Hotel Booking"},
+            "content": [
+                {
+                    "type": "text/html",
+                    "value": html_content
+                }
+            ]
+        }
+        
+        response = requests.post(url, headers=headers, json=data)
+        
+        if response.status_code == 202:
+            print(f"✅ Verification email sent successfully to {email}")
+            return True
+        else:
+            print(f"❌ SendGrid error: {response.status_code} - {response.text}")
+            return False
+            
     except Exception as e:
         print(f"❌ Failed to send verification email: {str(e)}")
         return False
