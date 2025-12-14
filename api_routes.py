@@ -373,6 +373,34 @@ def health_check():
         'timestamp': datetime.utcnow().isoformat(),
         'email_configured': bool(SENDGRID_API_KEY)
     }), 200
+# Token required decorator
+def token_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        token = request.headers.get('Authorization')
+        if not token:
+            return jsonify({'success': False, 'message': 'Token is missing'}), 401
+        
+        try:
+            if token.startswith('Bearer '):
+                token = token[7:]  # Remove 'Bearer ' prefix
+            
+            data = jwt.decode(token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
+            current_user_id = data['user_id']
+            
+            # Verify user exists
+            user = User.query.get(current_user_id)
+            if not user:
+                return jsonify({'success': False, 'message': 'Invalid token'}), 401
+                
+        except jwt.ExpiredSignatureError:
+            return jsonify({'success': False, 'message': 'Token has expired'}), 401
+        except jwt.InvalidTokenError:
+            return jsonify({'success': False, 'message': 'Invalid token'}), 401
+        
+        return f(current_user_id, *args, **kwargs)
+    return decorated
+
 # Import payment service
 try:
     from payment_service import gcash_service
