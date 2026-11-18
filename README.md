@@ -3,10 +3,10 @@
 Modern hotel booking system with Flutter mobile app and Flask backend. 
 3rd Year Project 2025-2026
 
-GROUP:
-<br>Full stack Developer: Marco Ronquillo<br>
-Tester/Analysts: Paula Talabis
-Document: Princess Joy Bituin
+GROUP:<br>
+Full stack Developer: Marco Ronquillo<br>
+Tester/Analysts: Paula Talabis<br>
+Document: Princess Joy Bituin<br>
 Document: kristina Ebit Martos
 
 
