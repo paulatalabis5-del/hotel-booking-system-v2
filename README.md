@@ -10,16 +10,30 @@ Document: Princess Joy Bituin
 Document: kristina Ebit Martos
 
 
+
 ## System Screenshots
 
-### Homepage
-![Homepage](images/homepage.png)
+### 1. Homepage
+![Homepage](imag/home.jpg)
 
-### Login Page
-![Login Page](images/login.png)
+### 2. Login Page
+![Login Page](imag/login.jpg)
 
-### User Dashboard
-![Dashboard](images/dashboard.png)
+### 3. Hotel Details
+![Hotel Details](imag/detail.jpg)
 
-### Booking Page
-![Booking Page](images/booking.png)
+### 4. Booking Page
+![Booking Page](imag/book.jpg)
+
+### 5. Check Page
+![Check Page](imag/check.jpg)
+
+### 6. Payment Page
+![Payment Page](imag/payment.jpg)
+
+### 7. User Profile
+![User Profile](imag/profile.jpg)
+
+### 8. Settings Page
+![Settings Page](imag/settings.jpg)
+
