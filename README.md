@@ -40,9 +40,4 @@ Document: kristina Ebit Martos
   </tr>
 </table>
 
-### 7. User Profile
-![User Profile](imag/profile.jpg)
-
-### 8. Settings Page
-![Settings Page](imag/settings.jpg)
 
