@@ -1,8 +1,25 @@
 # Hotel Booking System v2 
  
 Modern hotel booking system with Flutter mobile app and Flask backend. 
- 
-## Quick Deploy to Render 
-1. Create Render account and PostgreSQL database 
-2. Set environment variables for API keys 
-3. Deploy from this repository 
+3rd Year Project 2025-2026
+
+GROUP:
+Full stack Developer: Marco Ronquillo
+Tester/Analysts: Paula Talabis
+Document: Princess Joy Bituin
+Document: kristina Ebit Martos
+
+
+## System Screenshots
+
+### Homepage
+![Homepage](images/homepage.png)
+
+### Login Page
+![Login Page](images/login.png)
+
+### User Dashboard
+![Dashboard](images/dashboard.png)
+
+### Booking Page
+![Booking Page](images/booking.png)
