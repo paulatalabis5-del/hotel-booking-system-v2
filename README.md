@@ -11,25 +11,34 @@ Document: kristina Ebit Martos
 
 
 
-## System Screenshots
+<h2>System Screenshots</h2>
 
-### 1. Homepage
-![Homepage](imag/home.jpg)
-
-### 2. Login Page
-![Login Page](imag/login.jpg)
-
-### 3. Hotel Details
-![Hotel Details](imag/detail.jpg)
-
-### 4. Booking Page
-![Booking Page](imag/book.jpg)
-
-### 5. Check Page
-![Check Page](imag/check.jpg)
-
-### 6. Payment Page
-![Payment Page](imag/payment.jpg)
+<table>
+  <tr>
+    <th>Homepage</th>
+    <th>Login</th>
+    <th>Hotel Details</th>
+    <th>Booking</th>
+  </tr>
+  <tr>
+    <td><img src="imag/home.jpg" width="180"></td>
+    <td><img src="imag/login.jpg" width="180"></td>
+    <td><img src="imag/detail.jpg" width="180"></td>
+    <td><img src="imag/book.jpg" width="180"></td>
+  </tr>
+  <tr>
+    <th>Check</th>
+    <th>Payment</th>
+    <th>Profile</th>
+    <th>Settings</th>
+  </tr>
+  <tr>
+    <td><img src="imag/check.jpg" width="180"></td>
+    <td><img src="imag/payment.jpg" width="180"></td>
+    <td><img src="imag/profile.jpg" width="180"></td>
+    <td><img src="imag/settings.jpg" width="180"></td>
+  </tr>
+</table>
 
 ### 7. User Profile
 ![User Profile](imag/profile.jpg)
